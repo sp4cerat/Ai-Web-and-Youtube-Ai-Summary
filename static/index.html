@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Web · YT Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c; --surface: #131318; --surface2: #1a1a22; --border: #2a2a35;
+    --text: #e8e6f0; --text-dim: #8b8998;
+    --accent: #ff3b5c; --accent2: #7c5cff;
+    --accent-glow: rgba(255,59,92,0.15); --accent2-glow: rgba(124,92,255,0.15);
+    --radius: 12px; --font: 'DM Sans', sans-serif; --mono: 'Space Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; top:-40%; left:-20%; width:80vw; height:80vw; background:radial-gradient(circle,rgba(124,92,255,0.06) 0%,transparent 70%); pointer-events:none; z-index:0; }
+  body::after  { content:''; position:fixed; bottom:-30%; right:-20%; width:70vw; height:70vw; background:radial-gradient(circle,rgba(255,59,92,0.04) 0%,transparent 70%); pointer-events:none; z-index:0; }
+
+  /* ── Tabs ── */
+  .tabs { position:relative; z-index:2; display:flex; justify-content:center; gap:4px; padding:24px 24px 0; }
+  .tab {
+    padding:12px 32px; border:1px solid var(--border); border-bottom:none;
+    border-radius:12px 12px 0 0; background:var(--surface); color:var(--text-dim);
+    font-family:var(--mono); font-size:0.9rem; font-weight:700; cursor:pointer;
+    transition:all 0.25s; display:flex; align-items:center; gap:8px;
+  }
+  .tab:hover { color:var(--text); background:var(--surface2); }
+  .tab.active { background:var(--bg); color:var(--text); border-color:var(--accent2); border-bottom:1px solid var(--bg); margin-bottom:-1px; }
+  .tab svg { width:18px; height:18px; }
+  .tab-divider { position:relative; z-index:1; border-bottom:1px solid var(--border); margin:0 24px; }
+  .tab-panel { display:none; position:relative; z-index:1; }
+  .tab-panel.active { display:block; }
+
+  /* ── Header ── */
+  .header { text-align:center; padding:32px 24px 24px; }
+  .header h1 { font-family:var(--mono); font-size:clamp(1.4rem,3.5vw,2rem); font-weight:700; letter-spacing:-1px; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .header p { color:var(--text-dim); margin-top:4px; font-size:0.85rem; }
+
+  /* ── Search bar ── */
+  .search-wrap { max-width:680px; margin:0 auto 32px; padding:0 24px; }
+  .search-box { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:60px; overflow:hidden; transition:border-color 0.3s, box-shadow 0.3s; }
+  .search-box:focus-within { border-color:var(--accent2); box-shadow:0 0 0 3px var(--accent2-glow),0 8px 32px rgba(0,0,0,0.4); }
+  .search-box input { flex:1; background:none; border:none; outline:none; color:var(--text); font-family:var(--font); font-size:1rem; padding:16px 24px; }
+  .search-box input::placeholder { color:var(--text-dim); }
+  .search-box button { background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; color:#fff; font-family:var(--font); font-weight:600; padding:16px 28px; cursor:pointer; font-size:0.95rem; transition:opacity 0.2s; white-space:nowrap; }
+  .search-box button:hover { opacity:0.85; }
+  .status { text-align:center; color:var(--text-dim); font-size:0.9rem; margin-bottom:24px; min-height:24px; }
+
+  /* ── Video Grid ── */
+  .grid { max-width:1200px; margin:0 auto; padding:0 24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:20px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:transform 0.25s,border-color 0.25s,box-shadow 0.25s; animation:cardIn 0.4s ease both; }
+  .card:hover { transform:translateY(-4px); border-color:var(--accent2); box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 1px var(--accent2-glow); }
+  @keyframes cardIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .card-thumb { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; background:var(--surface2); }
+  .card-thumb img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
+  .card:hover .card-thumb img { transform:scale(1.05); }
+  .card-dur { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.85); color:#fff; font-family:var(--mono); font-size:0.75rem; padding:3px 8px; border-radius:4px; }
+  .card-body { padding:16px; }
+  .card-title { font-size:0.95rem; font-weight:600; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:6px; }
+  .card-meta { font-size:0.8rem; color:var(--text-dim); margin-bottom:14px; }
+  .card-meta span+span::before { content:' · '; color:var(--border); }
+  .card-actions { display:flex; gap:8px; }
+
+  .btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-family:var(--font); font-size:0.82rem; font-weight:500; cursor:pointer; transition:all 0.2s; text-decoration:none; }
+  .btn:hover { border-color:var(--accent); background:var(--accent-glow); color:var(--accent); }
+  .btn-summary:hover { border-color:var(--accent2); background:var(--accent2-glow); color:var(--accent2); }
+  .btn:disabled { opacity:0.5; cursor:wait; }
+  .btn svg { width:16px; height:16px; flex-shrink:0; }
+
+  .load-more-wrap { text-align:center; padding:32px 24px 64px; }
+  .btn-load-more { display:inline-flex; align-items:center; gap:8px; padding:14px 36px; border-radius:60px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-family:var(--font); font-size:0.95rem; font-weight:600; cursor:pointer; transition:all 0.25s; }
+  .btn-load-more:hover { border-color:var(--accent2); box-shadow:0 0 0 3px var(--accent2-glow); }
+  .btn-load-more:disabled { opacity:0.4; cursor:wait; }
+
+  /* ── Sort bar ── */
+  .sort-bar { max-width:1200px; margin:0 auto 20px; padding:0 24px; display:none; align-items:center; gap:8px; flex-wrap:wrap; }
+  .sort-bar.active { display:flex; }
+  .sort-label { font-size:0.82rem; color:var(--text-dim); margin-right:4px; }
+  .sort-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:var(--font); font-size:0.8rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
+  .sort-btn:hover { border-color:var(--accent2); color:var(--text); }
+  .sort-btn.active { border-color:var(--accent2); background:var(--accent2-glow); color:var(--accent2); }
+  .sort-btn svg { width:14px; height:14px; }
+
+  /* ── Modal ── */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); z-index:100; display:none; align-items:center; justify-content:center; padding:24px; animation:fadeIn 0.25s ease; }
+  .modal-overlay.active { display:flex; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; max-width:720px; width:100%; max-height:80vh; display:flex; flex-direction:column; animation:slideUp 0.3s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--border); }
+  .modal-header h2 { font-size:1rem; font-weight:600; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; padding-right:16px; }
+  .modal-close { background:none; border:none; color:var(--text-dim); cursor:pointer; padding:4px; transition:color 0.2s; flex-shrink:0; }
+  .modal-close:hover { color:var(--accent); }
+  .modal-body { padding:24px; overflow-y:auto; line-height:1.7; font-size:0.92rem; }
+  .modal-body .loading-msg { text-align:center; color:var(--text-dim); padding:40px 0; }
+  .modal-body .error-msg { color:var(--accent); text-align:center; padding:24px 0; }
+  .modal-body strong,.modal-body b { color:var(--accent); font-weight:600; }
+  .modal-body ul,.modal-body ol { padding-left:20px; margin:8px 0; }
+  .modal-body li { margin:4px 0; }
+  .modal-body p { margin:8px 0; }
+  .modal-footer { padding:12px 24px; border-top:1px solid var(--border); font-size:0.78rem; color:var(--text-dim); font-family:var(--mono); display:flex; justify-content:space-between; }
+
+  /* ── Web Browser ── */
+  .web-browser { max-width:1200px; margin:0 auto; padding:0 24px; }
+  .web-frame-wrap { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:none; margin-bottom:32px; }
+  .web-frame-wrap.active { display:block; }
+  .web-frame-bar { background:var(--surface); border-bottom:1px solid var(--border); padding:10px 16px; display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-dim); }
+  .web-frame-bar .url-display { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); font-size:0.78rem; }
+  .web-frame-bar .bar-btn { padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); color:var(--text-dim); font-family:var(--font); font-size:0.78rem; font-weight:500; cursor:pointer; transition:all 0.2s; white-space:nowrap; display:flex; align-items:center; gap:5px; }
+  .web-frame-bar .bar-btn:hover { border-color:var(--accent2); background:var(--accent2-glow); color:var(--accent2); }
+  .web-frame { width:100%; height:70vh; border:none; }
+
+  /* ── Browse/Summary view ── */
+  .browse-view { display:none; }
+  .browse-view.active { display:block; }
+  .browse-nav {
+    display:flex; align-items:center; gap:10px; margin-bottom:16px;
+    padding:12px 16px; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); flex-wrap:wrap;
+  }
+  .browse-crumbs {
+    font-size:0.78rem; font-family:var(--mono); color:var(--text-dim);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;
+  }
+  .browse-content {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:28px; margin-bottom:16px; line-height:1.7; font-size:0.92rem;
+  }
+  .browse-content .loading-msg { text-align:center; color:var(--text-dim); padding:40px 0; }
+  .browse-content .error-msg { color:var(--accent); text-align:center; padding:24px 0; }
+  .browse-content strong,.browse-content b { color:var(--accent); font-weight:600; }
+  .browse-content ul,.browse-content ol { padding-left:20px; margin:8px 0; }
+  .browse-content li { margin:4px 0; }
+  .browse-content p { margin:8px 0; }
+  .browse-content .summary-meta {
+    margin-top:16px; padding-top:12px; border-top:1px solid var(--border);
+    font-size:0.78rem; color:var(--text-dim); font-family:var(--mono);
+    display:flex; justify-content:space-between;
+  }
+  .browse-links {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; margin-bottom:32px;
+  }
+  .browse-links-title {
+    font-size:0.85rem; font-weight:600; color:var(--text-dim); margin-bottom:12px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .browse-links-title svg { width:16px; height:16px; }
+  .browse-link-list { display:flex; flex-direction:column; gap:4px; }
+  .browse-link {
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-radius:8px; cursor:pointer; transition:all 0.2s;
+    border:1px solid transparent; text-decoration:none; color:var(--text);
+  }
+  .browse-link:hover { background:var(--accent2-glow); border-color:var(--accent2); }
+  .browse-link-text { flex:1; font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .browse-link-domain { font-size:0.72rem; font-family:var(--mono); color:var(--text-dim); flex-shrink:0; }
+  .browse-link svg { width:14px; height:14px; color:var(--accent2); flex-shrink:0; }
+
+  .link-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+  .link-section-header {
+    display:flex; align-items:center; gap:8px; padding:14px 16px; cursor:pointer;
+    transition:background 0.2s; user-select:none;
+  }
+  .link-section-header:hover { background:var(--surface2); }
+  .link-section-header svg { width:16px; height:16px; color:var(--text-dim); flex-shrink:0; }
+  .link-section-title { flex:1; font-size:0.85rem; font-weight:600; color:var(--text-dim); }
+  .link-section-count { font-size:0.75rem; font-family:var(--mono); color:var(--text-dim); opacity:0.6; }
+  .link-section-chevron { width:14px; height:14px; color:var(--text-dim); transition:transform 0.25s; flex-shrink:0; }
+  .link-section.open .link-section-chevron { transform:rotate(180deg); }
+  .link-section-body { display:none; padding:0 16px 14px; }
+  .link-section.open .link-section-body { display:block; }
+
+  /* ── Inline summary links ── */
+  .summary-link {
+    color:var(--accent2); text-decoration:none; border-bottom:1px dotted var(--accent2);
+    cursor:pointer; transition:color 0.2s, border-color 0.2s;
+  }
+  .summary-link:hover { color:#a78bfa; border-color:#a78bfa; }
+  .modal-body .summary-link { color:var(--accent2); }
+  .modal-body .summary-link:hover { color:#a78bfa; }
+
+  /* ── Link popup ── */
+  .link-popup { position:fixed; z-index:200; display:none; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; min-width:220px; box-shadow:0 12px 40px rgba(0,0,0,0.6); animation:slideUp 0.2s ease; }
+  .link-popup.active { display:block; }
+  .link-popup-title { font-size:0.82rem; color:var(--text); margin-bottom:4px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px; }
+  .link-popup-url { font-size:0.72rem; font-family:var(--mono); color:var(--text-dim); margin-bottom:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px; opacity:0.6; }
+  .link-popup-actions { display:flex; gap:6px; }
+  .link-popup-actions .btn { font-size:0.8rem; padding:8px 12px; }
+
+  /* ── Checkbox toggle ── */
+  .option-row {
+    max-width:680px; margin:-16px auto 24px; padding:0 24px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .toggle-label {
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    font-size:0.84rem; color:var(--text-dim); transition:color 0.2s;
+    user-select:none;
+  }
+  .toggle-label:hover { color:var(--text); }
+  .toggle-label input { display:none; }
+  .toggle-track {
+    width:36px; height:20px; border-radius:10px; background:var(--border);
+    position:relative; transition:background 0.25s; flex-shrink:0;
+  }
+  .toggle-track::after {
+    content:''; position:absolute; top:2px; left:2px;
+    width:16px; height:16px; border-radius:50%; background:var(--text-dim);
+    transition:transform 0.25s, background 0.25s;
+  }
+  .toggle-label input:checked + .toggle-track { background:var(--accent2); }
+  .toggle-label input:checked + .toggle-track::after { transform:translateX(16px); background:#fff; }
+
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent2); border-radius:50%; animation:spin 0.6s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* ── AI Chat ── */
+  .ai-chat { max-width:800px; margin:0 auto; padding:0 24px; }
+  .ai-answer-wrap {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:28px; line-height:1.8; font-size:0.95rem; display:none; margin-bottom:24px;
+  }
+  .ai-answer-wrap.active { display:block; }
+  .ai-answer-wrap strong,.ai-answer-wrap b { color:var(--accent); font-weight:600; }
+  .ai-answer-wrap ul,.ai-answer-wrap ol { padding-left:20px; margin:8px 0; }
+  .ai-answer-wrap li { margin:4px 0; }
+  .ai-answer-wrap p { margin:8px 0; }
+  .ai-answer-meta {
+    margin-top:16px; padding-top:12px; border-top:1px solid var(--border);
+    font-size:0.78rem; color:var(--text-dim); font-family:var(--mono);
+  }
+  .ai-history { display:flex; flex-direction:column; gap:16px; margin-bottom:24px; }
+  .ai-history-q {
+    font-size:0.85rem; color:var(--text-dim); font-family:var(--mono);
+    padding:10px 14px; background:var(--surface2); border-radius:8px;
+    border-left:3px solid var(--accent2);
+  }
+
+  /* ── Explainable terms ── */
+  .explainable {
+    color:var(--accent2); cursor:pointer; border-bottom:1px dashed var(--accent2);
+    transition:all 0.2s;
+  }
+  .explainable:hover { color:#a78bfa; border-color:#a78bfa; }
+  .explainable.loading { opacity:0.6; cursor:wait; }
+  .explainable.expanded { border-bottom-style:solid; font-weight:600; }
+
+  /* Expanded inline explanation — flows naturally in text */
+  .explained {
+    cursor:pointer; transition:color 0.2s;
+  }
+  .explained:hover { opacity:0.8; }
+
+  /* Depth colors */
+  .depth-0 .explainable { color:var(--accent2); border-color:var(--accent2); }
+  .depth-1, .explained.depth-1 { color:#a78bfa; border-color:#a78bfa; }
+  .depth-1 .explainable { color:var(--accent); border-color:var(--accent); }
+  .depth-2, .explained.depth-2 { color:#f472b6; border-color:#f472b6; }
+  .depth-2 .explainable { color:var(--green); border-color:var(--green); }
+  .depth-3, .explained.depth-3 { color:#34d399; border-color:#34d399; }
+  .depth-3 .explainable { color:#fbbf24; border-color:#fbbf24; }
+  .depth-4, .explained.depth-4 { color:#fbbf24; border-color:#fbbf24; }
+  .depth-4 .explainable { color:#fb923c; border-color:#fb923c; }
+
+  @media (max-width:640px) {
+    .grid { grid-template-columns:1fr; }
+    .header { padding:24px 16px 16px; }
+    .search-wrap { padding:0 16px; margin-bottom:24px; }
+    .sort-bar,.web-browser { padding:0 16px; }
+    .tabs { padding:16px 16px 0; }
+    .tab { padding:10px 18px; font-size:0.8rem; }
+    .tab-divider { margin:0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Tabs ── -->
+<div class="tabs">
+  <button class="tab active" data-tab="ai" onclick="switchTab('ai')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4v1a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-1a3 3 0 0 1 3-3V6a4 4 0 0 1 4-4z"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M9 16c.85.63 1.885 1 3 1s2.15-.37 3-1"/><path d="M12 17v5"/><path d="M8 22h8"/></svg>
+    AI
+  </button>
+  <button class="tab" data-tab="web" onclick="switchTab('web')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    AI Web
+  </button>
+  <button class="tab" data-tab="yt" onclick="switchTab('yt')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    YT Search
+  </button>
+</div>
+<div class="tab-divider"></div>
+
+<!-- ═══════ AI TAB ═══════ -->
+<div class="tab-panel active" id="panel-ai">
+  <div class="header">
+    <h1>AI</h1>
+    <p>Frage stellen · Fachbegriffe per Klick erklärt</p>
+  </div>
+  <div class="search-wrap">
+    <div class="search-box">
+      <input type="text" id="aiInput" placeholder="Stelle eine Frage …" autofocus
+             onkeydown="if(event.key==='Enter')askAI()">
+      <button onclick="askAI()">Fragen</button>
+    </div>
+  </div>
+  <div class="status" id="aiStatus"></div>
+  <div class="ai-chat">
+    <div class="ai-history" id="aiHistory"></div>
+    <div class="ai-answer-wrap" id="aiAnswerWrap">
+      <div id="aiAnswer"></div>
+      <div class="ai-answer-meta" id="aiMeta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ AI WEB TAB ═══════ -->
+<div class="tab-panel" id="panel-web">
+  <div class="header">
+    <h1>AI Web</h1>
+    <p>Webseiten laden · Links zusammenfassen</p>
+  </div>
+  <div class="search-wrap">
+    <div class="search-box">
+      <input type="text" id="webUrlInput" placeholder="URL eingeben, z.B. spiegel.de" autofocus
+             onkeydown="if(event.key==='Enter')loadWebPage()">
+      <button onclick="loadWebPage()">Laden</button>
+    </div>
+  </div>
+  <div class="option-row">
+    <label class="toggle-label">
+      <input type="checkbox" id="externalMode" onchange="onExternalModeChange()">
+      <span class="toggle-track"></span>
+      Zusammenfassungs-Modus
+    </label>
+  </div>
+  <div class="status" id="webStatus"></div>
+  <div class="web-browser">
+    <div class="web-frame-wrap" id="webFrameWrap">
+      <div class="web-frame-bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="url-display" id="webUrlDisplay"></span>
+        <button class="bar-btn" onclick="summarizeCurrentPage()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Seite zusammenfassen
+        </button>
+      </div>
+      <iframe class="web-frame" id="webFrame" sandbox="allow-same-origin allow-scripts"></iframe>
+    </div>
+
+    <!-- Browse/Summary view -->
+    <div class="browse-view" id="browseView">
+      <div class="browse-nav" id="browseNav">
+        <button class="bar-btn" id="browseBackBtn" onclick="browseBack()" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Zurück
+        </button>
+        <span class="browse-crumbs" id="browseCrumbs"></span>
+      </div>
+      <div class="browse-content" id="browseContent"></div>
+      <div class="browse-links" id="browseLinks"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ YT SEARCH TAB ═══════ -->
+<div class="tab-panel" id="panel-yt">
+  <div class="header">
+    <h1>▶ YT Search</h1>
+    <p>YouTube Videos suchen · Transcripts zusammenfassen</p>
+  </div>
+  <div class="search-wrap">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="YouTube durchsuchen …" onkeydown="if(event.key==='Enter')doSearch()">
+      <button onclick="doSearch()">Suchen</button>
+    </div>
+  </div>
+  <div class="status" id="ytStatus"></div>
+  <div class="sort-bar" id="sortBar">
+    <span class="sort-label">Sortieren:</span>
+    <button class="sort-btn active" data-sort="relevance" onclick="setSort('relevance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Relevanz</button>
+    <button class="sort-btn" data-sort="views-desc" onclick="setSort('views-desc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V4M5 11l7-7 7 7"/></svg> Views ↓</button>
+    <button class="sort-btn" data-sort="views-asc" onclick="setSort('views-asc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M5 13l7 7 7-7"/></svg> Views ↑</button>
+    <button class="sort-btn" data-sort="date-desc" onclick="setSort('date-desc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Neueste</button>
+    <button class="sort-btn" data-sort="date-asc" onclick="setSort('date-asc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Älteste</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+    <button class="btn-load-more" id="loadMoreBtn" onclick="loadMore()">Mehr laden</button>
+  </div>
+</div>
+
+<!-- ── Shared Modal ── -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Zusammenfassung</h2>
+      <button class="modal-close" onclick="closeModal()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- ── Link Popup ── -->
+<div class="link-popup" id="linkPopup">
+  <div class="link-popup-title" id="linkPopupTitle"></div>
+  <div class="link-popup-url" id="linkPopupUrl"></div>
+  <div class="link-popup-actions">
+    <a class="btn" id="linkPopupOpen" href="#" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Öffnen
+    </a>
+    <button class="btn btn-summary" onclick="summarizeLink()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Summary
+    </button>
+    <button class="btn" onclick="navigateToLink()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Hier laden
+    </button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tab}`));
+  closeLinkPopup();
+  if (tab === 'ai') document.getElementById('aiInput').focus();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI TAB
+// ═══════════════════════════════════════════════════════════════
+let aiContext = '';
+let aiTermCounter = 0;
+let explainCache = {};
+
+async function askAI() {
+  const q = document.getElementById('aiInput').value.trim();
+  if (!q) return;
+
+  const status = document.getElementById('aiStatus');
+  const answerWrap = document.getElementById('aiAnswerWrap');
+  const answerEl = document.getElementById('aiAnswer');
+  const metaEl = document.getElementById('aiMeta');
+  const historyEl = document.getElementById('aiHistory');
+
+  status.innerHTML = '<span class="spinner"></span> Antwort wird generiert …';
+  answerWrap.classList.remove('active');
+
+  try {
+    const resp = await fetch('/api/ask', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q })
+    });
+    const data = await resp.json();
+    if (data.error) { status.textContent = `Fehler: ${data.error}`; return; }
+
+    aiContext = q;
+    aiTermCounter = 0;
+    explainCache = {};
+    status.textContent = '';
+
+    const qDiv = document.createElement('div');
+    qDiv.className = 'ai-history-q';
+    qDiv.textContent = q;
+    historyEl.appendChild(qDiv);
+
+    answerEl.innerHTML = '<div class="depth-0">' + renderAIAnswer(data.answer, 0) + '</div>';
+    metaEl.textContent = `Model: ${data.model}`;
+    answerWrap.classList.add('active');
+
+    document.getElementById('aiInput').value = '';
+    answerWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    status.textContent = `Netzwerkfehler: ${err.message}`;
+  }
+}
+
+function renderAIAnswer(text, depth) {
+  const terms = [];
+  text = text.replace(/<<(.+?)>>/g, (m, t) => {
+    const idx = terms.length;
+    terms.push(t);
+    return `%%TERM${idx}%%`;
+  });
+
+  text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^\s*[-*]\s+(.+)$/gm,'<li>$1</li>')
+    .replace(/^\s*(\d+)\.\s+(.+)$/gm,'<li>$2</li>')
+    .replace(/(<li>.*<\/li>)/gs,m=>`<ul>${m}</ul>`)
+    .replace(/<\/ul>\s*<ul>/g,'')
+    .replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>')
+    .replace(/^/,'<p>').replace(/$/,'</p>');
+
+  for (let i = 0; i < terms.length; i++) {
+    const t = terms[i];
+    const termId = 'term-' + (aiTermCounter++);
+    const d = depth || 0;
+    text = text.replace(`%%TERM${i}%%`,
+      `<span class="explainable" id="${termId}" data-term="${escAttr(t)}" data-depth="${d}" onclick="explainTerm('${termId}')">${escHtml(t)}</span>`);
+  }
+  return text;
+}
+
+async function explainTerm(termId) {
+  const el = document.getElementById(termId);
+  if (!el) return;
+  const term = el.dataset.term;
+  const depth = parseInt(el.dataset.depth) || 0;
+  const expandedId = termId + '-exp';
+  const existing = document.getElementById(expandedId);
+
+  // Toggle: hide/show cached explanation
+  if (existing) {
+    const hidden = existing.style.display === 'none';
+    existing.style.display = hidden ? '' : 'none';
+    el.classList.toggle('expanded', hidden);
+    return;
+  }
+
+  const parent = el.closest('p, li, div, span.explained') || el.parentElement;
+  const sentence = parent ? parent.textContent.trim().substring(0, 300) : '';
+
+  // Check cache
+  const cacheKey = term + '::' + (aiContext || '');
+  let explanationText = explainCache[cacheKey];
+
+  if (!explanationText) {
+    el.classList.add('loading');
+    try {
+      const resp = await fetch('/api/explain', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ term, context: aiContext, sentence })
+      });
+      const data = await resp.json();
+      el.classList.remove('loading');
+      if (data.error) return;
+      explanationText = data.explanation;
+      explainCache[cacheKey] = explanationText;
+    } catch (err) {
+      el.classList.remove('loading');
+      return;
+    }
+  }
+
+  el.classList.add('expanded');
+
+  const nextDepth = depth + 1;
+  const expanded = document.createElement('span');
+  expanded.id = expandedId;
+  expanded.className = `explained depth-${Math.min(nextDepth, 4)}`;
+  expanded.innerHTML = ' ' + renderInline(explanationText, nextDepth);
+
+  // Click on explanation text (not on nested terms) hides it
+  expanded.addEventListener('click', function(evt) {
+    if (evt.target.closest('.explainable')) return;
+    if (evt.target.closest('.explained') !== expanded) return;
+    expanded.style.display = 'none';
+    el.classList.remove('expanded');
+  });
+
+  el.after(expanded);
+}
+
+// Render explanation as pure inline text — no formatting, no breaks
+function renderInline(text, depth) {
+  const terms = [];
+  text = text.replace(/<<(.+?)>>/g, (m, t) => {
+    const idx = terms.length;
+    terms.push(t);
+    return `%%TERM${idx}%%`;
+  });
+
+  // Escape HTML
+  text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Strip all markdown formatting
+  text = text.replace(/\*\*(.+?)\*\*/g,'$1');
+  text = text.replace(/^\s*[-*]\s+/gm,'');
+  text = text.replace(/^\s*\d+\.\s+/gm,'');
+  // Collapse to single line
+  text = text.replace(/\n+/g,' ').replace(/\s{2,}/g,' ').trim();
+
+  // Restore clickable terms
+  for (let i = 0; i < terms.length; i++) {
+    const t = terms[i];
+    const termId = 'term-' + (aiTermCounter++);
+    text = text.replace(`%%TERM${i}%%`,
+      `<span class="explainable" id="${termId}" data-term="${escAttr(t)}" data-depth="${depth}" onclick="explainTerm('${termId}')">${escHtml(t)}</span>`);
+  }
+  return text;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI WEB
+// ═══════════════════════════════════════════════════════════════
+let currentWebUrl = '';
+let pendingLinkUrl = '';
+let pendingLinkText = '';
+let browseHistory = []; // stack of {url, title}
+
+function isBrowseMode() { return document.getElementById('externalMode').checked; }
+
+function onExternalModeChange() {
+  const frameWrap = document.getElementById('webFrameWrap');
+  const browseView = document.getElementById('browseView');
+  if (isBrowseMode()) {
+    frameWrap.classList.remove('active');
+    // If we already have a URL loaded, switch to browse view
+    if (currentWebUrl) browseTo(currentWebUrl, '');
+  } else {
+    browseView.classList.remove('active');
+  }
+}
+
+async function loadWebPage() {
+  let url = document.getElementById('webUrlInput').value.trim();
+  if (!url) return;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
+  currentWebUrl = url;
+
+  if (isBrowseMode()) {
+    browseHistory = [];
+    browseTo(url, '');
+    return;
+  }
+
+  // Embedded iframe mode
+  const status = document.getElementById('webStatus');
+  status.innerHTML = '<span class="spinner"></span> Seite wird geladen …';
+  document.getElementById('browseView').classList.remove('active');
+  document.getElementById('webFrame').style.display = '';
+
+  try {
+    const resp = await fetch(`/api/web-fetch?url=${encodeURIComponent(url)}`);
+    const data = await resp.json();
+    if (data.error) { status.textContent = `Fehler: ${data.error}`; return; }
+
+    currentWebUrl = data.url;
+    document.getElementById('webUrlDisplay').textContent = data.url;
+    document.getElementById('webUrlInput').value = data.url;
+    document.getElementById('webFrame').srcdoc = data.html;
+    document.getElementById('webFrameWrap').classList.add('active');
+    status.textContent = data.title || data.url;
+  } catch (err) {
+    status.textContent = `Netzwerkfehler: ${err.message}`;
+  }
+}
+
+// ── Browse mode (summary navigation) ──
+async function browseTo(url, text) {
+  currentWebUrl = url;
+  document.getElementById('webUrlInput').value = url;
+  document.getElementById('webFrameWrap').classList.remove('active');
+
+  const browseView = document.getElementById('browseView');
+  const content = document.getElementById('browseContent');
+  const linksEl = document.getElementById('browseLinks');
+  const status = document.getElementById('webStatus');
+
+  browseView.classList.add('active');
+  linksEl.innerHTML = '';
+  content.innerHTML = '<div class="loading-msg"><span class="spinner"></span><br><br>Seite wird analysiert und zusammengefasst …<br><small>10–30 Sekunden</small></div>';
+  status.innerHTML = '<span class="spinner"></span> Zusammenfassung wird erstellt …';
+  updateBrowseNav();
+
+  try {
+    const resp = await fetch('/api/web-summary', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url, text })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      content.innerHTML = `<div class="error-msg">⚠ ${escHtml(data.error)}</div>`;
+      status.textContent = 'Fehler';
+      return;
+    }
+
+    const title = data.title || url;
+    status.textContent = title;
+
+    // Update history with title
+    if (browseHistory.length > 0) {
+      browseHistory[browseHistory.length - 1].title = title;
+    }
+
+    // Render summary
+    content.innerHTML = renderMarkdown(data.summary, true) +
+      `<div class="summary-meta"><span>Model: ${escHtml(data.model)}</span><span>Text: ${(data.text_length/1000).toFixed(1)}k Zeichen</span></div>`;
+
+    // Render all link sections
+    let allLinksHtml = '';
+    allLinksHtml += renderLinkSection(data.links, 'Inhaltliche Links', 
+      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', false);
+    allLinksHtml += renderLinkSection(data.cat_links, 'Kategorien & Themen',
+      '<path d="M4 7h16M4 12h16M4 17h10"/>', true);
+    allLinksHtml += renderLinkSection(data.nav_links, 'Navigation & Sonstiges',
+      '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>', true);
+    allLinksHtml += renderLinkSection(data.social_links, 'Social Media',
+      '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>', true);
+    linksEl.innerHTML = allLinksHtml;
+
+    // Scroll to top
+    window.scrollTo({ top: document.getElementById('browseView').offsetTop - 80, behavior: 'smooth' });
+
+  } catch (err) {
+    content.innerHTML = `<div class="error-msg">⚠ ${escHtml(err.message)}</div>`;
+    status.textContent = 'Fehler';
+  }
+}
+
+function browseToLink(url, text) {
+  browseHistory.push({ url: currentWebUrl, title: document.getElementById('webStatus').textContent });
+  browseTo(url, text);
+}
+
+function browseBack() {
+  if (browseHistory.length === 0) return;
+  const prev = browseHistory.pop();
+  browseTo(prev.url, prev.title);
+}
+
+function updateBrowseNav() {
+  const backBtn = document.getElementById('browseBackBtn');
+  const crumbs = document.getElementById('browseCrumbs');
+  backBtn.style.display = browseHistory.length > 0 ? '' : 'none';
+
+  if (browseHistory.length > 0) {
+    const parts = browseHistory.map(h => {
+      let label = h.title || h.url;
+      if (label.length > 30) label = label.substring(0, 30) + '…';
+      return escHtml(label);
+    });
+    parts.push('◀ aktuell');
+    crumbs.innerHTML = parts.join(' → ');
+  } else {
+    crumbs.textContent = currentWebUrl;
+  }
+}
+
+// ── Iframe link interception (for non-browse mode) ──
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'link-click') showLinkPopup(e.data.url, e.data.text);
+});
+
+function showLinkPopup(url, text) {
+  pendingLinkUrl = url;
+  pendingLinkText = text;
+  const popup = document.getElementById('linkPopup');
+  document.getElementById('linkPopupTitle').textContent = text || 'Link';
+  document.getElementById('linkPopupUrl').textContent = url;
+  document.getElementById('linkPopupOpen').href = url;
+  popup.style.top = '50%'; popup.style.left = '50%'; popup.style.transform = 'translate(-50%,-50%)';
+  popup.classList.add('active');
+}
+
+function closeLinkPopup() { document.getElementById('linkPopup').classList.remove('active'); }
+
+function navigateToLink() {
+  closeLinkPopup();
+  document.getElementById('webUrlInput').value = pendingLinkUrl;
+  loadWebPage();
+}
+
+function summarizeLink() { closeLinkPopup(); doWebSummary(pendingLinkUrl, pendingLinkText); }
+function summarizeCurrentPage() { doWebSummary(currentWebUrl, ''); }
+
+async function doWebSummary(url, text) {
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const modalFooter = document.getElementById('modalFooter');
+  modalTitle.textContent = text || url;
+  modalBody.innerHTML = '<div class="loading-msg"><span class="spinner"></span><br><br>Seite wird analysiert und zusammengefasst …<br><small>Das kann 10–30 Sekunden dauern.</small></div>';
+  modalFooter.textContent = '';
+  document.getElementById('modal').classList.add('active');
+
+  try {
+    const resp = await fetch('/api/web-summary', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url, text })
+    });
+    const data = await resp.json();
+    if (data.error) { modalBody.innerHTML = `<div class="error-msg">⚠ ${escHtml(data.error)}</div>`; return; }
+    if (data.title) modalTitle.textContent = data.title;
+    modalBody.innerHTML = renderMarkdown(data.summary);
+    modalFooter.innerHTML = `<span>Model: ${escHtml(data.model)}</span><span>Text: ${(data.text_length/1000).toFixed(1)}k Zeichen</span>`;
+  } catch (err) {
+    modalBody.innerHTML = `<div class="error-msg">⚠ ${escHtml(err.message)}</div>`;
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const popup = document.getElementById('linkPopup');
+  if (popup.classList.contains('active') && !popup.contains(e.target)) closeLinkPopup();
+});
+
+// Intercept clicks on inline summary links in browse mode
+document.getElementById('browseContent').addEventListener('click', function(e) {
+  const link = e.target.closest('a.summary-link[data-url]');
+  if (link) {
+    e.preventDefault();
+    browseToLink(link.dataset.url, link.dataset.text || link.textContent);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// YT SEARCH
+// ═══════════════════════════════════════════════════════════════
+let currentQuery='', continuation='', hasMore=false, allVideos=[], currentSort='relevance';
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  currentQuery=q; continuation=''; allVideos=[]; currentSort='relevance';
+  updateSortButtons();
+  document.getElementById('grid').innerHTML='';
+  document.getElementById('loadMoreWrap').style.display='none';
+  document.getElementById('sortBar').classList.remove('active');
+  await fetchPage();
+}
+async function loadMore() { await fetchPage(); }
+
+async function fetchPage() {
+  const status=document.getElementById('ytStatus'), btn=document.getElementById('loadMoreBtn');
+  status.innerHTML='<span class="spinner"></span> Suche läuft …'; btn.disabled=true;
+  try {
+    let url=`/api/search?q=${encodeURIComponent(currentQuery)}`;
+    if (continuation) url+=`&continuation=${encodeURIComponent(continuation)}`;
+    const resp=await fetch(url); const data=await resp.json();
+    if (data.error) { status.textContent=`Fehler: ${data.error}`; return; }
+    hasMore=data.has_more; continuation=data.continuation||'';
+    allVideos=allVideos.concat(data.videos);
+    document.getElementById('sortBar').classList.add('active');
+    applySort();
+    status.textContent=`${allVideos.length} Ergebnisse für "${currentQuery}"`;
+    document.getElementById('loadMoreWrap').style.display=hasMore?'block':'none';
+  } catch(err) { status.textContent=`Netzwerkfehler: ${err.message}`; }
+  finally { btn.disabled=false; }
+}
+
+function setSort(s) { currentSort=s; updateSortButtons(); applySort(); }
+function updateSortButtons() { document.querySelectorAll('.sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===currentSort)); }
+function relativeToDays(t) {
+  if(!t) return 99999; t=t.toLowerCase(); const n=parseInt(t.replace(/[^\d]/g,''))||1;
+  if(t.includes('stunde')||t.includes('hour')) return n/24;
+  if(t.includes('minute')) return n/1440;
+  if(t.includes('tag')||t.includes('day')) return n;
+  if(t.includes('woche')||t.includes('week')) return n*7;
+  if(t.includes('monat')||t.includes('month')) return n*30;
+  if(t.includes('jahr')||t.includes('year')) return n*365;
+  return 99999;
+}
+function applySort() {
+  let s=[...allVideos];
+  switch(currentSort) {
+    case 'views-desc': s.sort((a,b)=>(b.view_count||0)-(a.view_count||0)); break;
+    case 'views-asc':  s.sort((a,b)=>(a.view_count||0)-(b.view_count||0)); break;
+    case 'date-desc':  s.sort((a,b)=>relativeToDays(a.published)-relativeToDays(b.published)); break;
+    case 'date-asc':   s.sort((a,b)=>relativeToDays(b.published)-relativeToDays(a.published)); break;
+  }
+  document.getElementById('grid').innerHTML='';
+  renderVideos(s);
+}
+function renderVideos(videos) {
+  const grid=document.getElementById('grid');
+  videos.forEach((v,i) => {
+    const card=document.createElement('div'); card.className='card'; card.style.animationDelay=`${i*0.06}s`;
+    const thumb=v.thumbnail||`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`;
+    card.innerHTML=`
+      <div class="card-thumb"><img src="${thumb}" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${v.id}/hqdefault.jpg'">${v.duration?`<span class="card-dur">${v.duration}</span>`:''}</div>
+      <div class="card-body">
+        <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
+        <div class="card-meta"><span>${escHtml(v.channel)}</span>${v.views?`<span>${v.views}</span>`:''}${v.published?`<span>${escHtml(v.published)}</span>`:''}</div>
+        <div class="card-actions">
+          <a class="btn" href="${v.url}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Öffnen</a>
+          <button class="btn btn-summary" onclick="getSummary('${v.id}',this)" data-title="${escAttr(v.title)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Summary</button>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+async function getSummary(videoId, btnEl) {
+  const title=btnEl.getAttribute('data-title')||'Video';
+  btnEl.disabled=true; btnEl.innerHTML='<span class="spinner"></span> Lädt …';
+  const modalTitle=document.getElementById('modalTitle'), modalBody=document.getElementById('modalBody'), modalFooter=document.getElementById('modalFooter');
+  modalTitle.textContent=title;
+  modalBody.innerHTML='<div class="loading-msg"><span class="spinner"></span><br><br>Transcript wird zusammengefasst …<br><small>10–30 Sekunden</small></div>';
+  modalFooter.textContent='';
+  document.getElementById('modal').classList.add('active');
+  try {
+    const resp=await fetch('/api/summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video_id:videoId,title})});
+    const data=await resp.json();
+    if(data.error){modalBody.innerHTML=`<div class="error-msg">⚠ ${escHtml(data.error)}</div>`;return;}
+    modalBody.innerHTML=renderMarkdown(data.summary);
+    modalFooter.innerHTML=`<span>Model: ${escHtml(data.model)}</span><span>Transcript: ${(data.transcript_length/1000).toFixed(1)}k</span>`;
+  } catch(err) { modalBody.innerHTML=`<div class="error-msg">⚠ ${escHtml(err.message)}</div>`; }
+  finally { btnEl.disabled=false; btnEl.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Summary'; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHARED
+// ═══════════════════════════════════════════════════════════════
+
+// Render a collapsible link section
+function renderLinkSection(linkList, title, iconPath, collapsed) {
+  if (!linkList || linkList.length === 0) return '';
+  const sectionId = 'ls-' + title.replace(/\W/g,'');
+  const openClass = collapsed ? '' : ' open';
+  let html = `<div class="link-section${openClass}" id="${sectionId}">
+    <div class="link-section-header" onclick="toggleLinkSection('${sectionId}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${iconPath}</svg>
+      <span class="link-section-title">${escHtml(title)}</span>
+      <span class="link-section-count">${linkList.length}</span>
+      <svg class="link-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="link-section-body"><div class="browse-link-list">`;
+  for (const link of linkList) {
+    let domain = '';
+    try { domain = new URL(link.url).hostname.replace('www.',''); } catch(e) {}
+    html += `<div class="browse-link" onclick="browseToLink('${escAttr(link.url)}','${escAttr(link.text)}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <span class="browse-link-text">${escHtml(link.text)}</span>
+      <span class="browse-link-domain">${escHtml(domain)}</span>
+    </div>`;
+  }
+  html += '</div></div></div>';
+  return html;
+}
+
+function toggleLinkSection(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('active'); }
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeLinkPopup();}});
+
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function escAttr(s){return s.replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+function renderMarkdown(text, browseMode){
+  // 1. Extract markdown links [text](url) before escaping
+  const links = [];
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => {
+    const idx = links.length;
+    links.push({ text: t, url: u });
+    return `%%LINK${idx}%%`;
+  });
+
+  // 2. HTML escape
+  text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // 3. Markdown formatting
+  text = text
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^\s*[-*]\s+(.+)$/gm,'<li>$1</li>')
+    .replace(/^\s*(\d+)\.\s+(.+)$/gm,'<li>$2</li>')
+    .replace(/(<li>.*<\/li>)/gs,m=>`<ul>${m}</ul>`)
+    .replace(/<\/ul>\s*<ul>/g,'')
+    .replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>')
+    .replace(/^/,'<p>').replace(/$/,'</p>');
+
+  // 4. Restore links as <a> tags
+  for (let i = 0; i < links.length; i++) {
+    const l = links[i];
+    const safeUrl = l.url.replace(/'/g, '%27').replace(/"/g, '%22');
+    const safeText = escHtml(l.text);
+    if (browseMode) {
+      text = text.replace(`%%LINK${i}%%`,
+        `<a href="#" class="summary-link" data-url="${safeUrl}" data-text="${escAttr(l.text)}">${safeText}</a>`);
+    } else {
+      text = text.replace(`%%LINK${i}%%`,
+        `<a href="${safeUrl}" target="_blank" rel="noopener" class="summary-link">${safeText}</a>`);
+    }
+  }
+  return text;
+}
+</script>
+</body>
+</html>
