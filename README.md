@@ -1,70 +1,70 @@
 # AI Web · YT Search
 
-KI-gestützte Plattform mit drei Modulen: AI-Fragen mit rekursiven Inline-Erklärungen, Web-Zusammenfassungen mit Link-Navigation, und YouTube-Suche mit Transcript-Summaries.
+AI-powered platform with three modules: an AI Q&A with recursive inline explanations, web page summarization with link navigation, and YouTube search with transcript summaries.
 
 ## Features
 
 ### AI Tab
-- **Frage stellen** → LLM antwortet kurz und prägnant
-- **Klickbare Fachbegriffe** — schwer verständliche Begriffe werden automatisch markiert
-- **Inline-Erklärungen** — Klick auf einen Begriff fügt eine Erklärung in Klammern nahtlos in den Text ein
-- **Rekursiv** — Erklärungen enthalten selbst wieder klickbare Begriffe, beliebig tief
-- **Farbtiefe** — jede Erklärungsebene in eigener Farbe (lila → rosa → grün → gelb → orange)
-- **Cache** — einmal geladene Erklärungen werden gecacht, Auf-/Zuklappen ohne API-Call
-- **Toggle** — Klick auf Erklärung klappt sie zu, Klick auf Begriff öffnet sie wieder
+- **Ask questions** → LLM responds concisely
+- **Clickable terms** — complex concepts are automatically highlighted
+- **Inline explanations** — click a term to insert a parenthetical explanation seamlessly into the text
+- **Recursive** — explanations contain their own clickable terms, nestable to any depth
+- **Color-coded depth** — each explanation level uses a distinct color (purple → pink → green → yellow → orange)
+- **Cached** — explanations are cached client-side; toggling open/closed requires no API calls
+- **Toggle** — click an explanation to collapse it, click the term to expand it again
 
 ### AI Web Tab
-- **Zwei Modi:**
-  - **Iframe-Modus** (Standard) — Webseite wird eingebettet, Links öffnen ein Popup (Öffnen / Summary / Hier laden)
-  - **Zusammenfassungs-Modus** (Toggle) — LLM-Summary mit klickbaren Inline-Links, Navigation durch Zusammenfassungen
-- **Seite zusammenfassen** — Button in der Adressleiste fasst die aktuelle Seite zusammen
-- **Kategorisierte Links** — Links werden nach Relevanz sortiert in aufklappbare Sektionen:
-  - Inhaltliche Links (offen)
-  - Kategorien & Themen (zugeklappt)
-  - Navigation & Sonstiges (zugeklappt)
-  - Social Media (zugeklappt)
-- **Zurück-Navigation** — Breadcrumb-Historie beim Browsen durch Summaries
+- **Two modes:**
+  - **Iframe mode** (default) — pages are embedded via proxy, link clicks open a popup (Open / Summary / Load here)
+  - **Summary mode** (toggle) — LLM summary with clickable inline links, browse through summaries
+- **Summarize page** — button in the address bar summarizes the current page
+- **Categorized links** — links are relevance-scored and grouped into collapsible sections:
+  - Content links (open by default)
+  - Categories & Topics (collapsed)
+  - Navigation & Misc (collapsed)
+  - Social Media (collapsed)
+- **Back navigation** — breadcrumb history when browsing through summaries
 
 ### YT Search Tab
-- **YouTube-Suche** via Innertube API (schnell, kein API-Key nötig)
-- **10 Ergebnisse** pro Seite mit "Mehr laden" (Continuation-Token)
-- **Video-Karten** mit Thumbnail, Titel, Kanal, Views, Datum
-- **Sortierung** — Relevanz, Views ↓/↑, Neueste, Älteste
-- **Öffnen** — Direktlink zu YouTube
-- **Summary** — Transcript automatisch laden und per LLM zusammenfassen
+- **YouTube search** via Innertube API (fast, no API key needed)
+- **10 results** per page with "Load more" (continuation tokens)
+- **Video cards** with thumbnail, title, channel, views, date
+- **Sorting** — Relevance, Views ↓/↑, Newest, Oldest
+- **Open** — direct link to YouTube
+- **Summary** — automatically fetch transcript and summarize via LLM
 
-### Allgemein
-- **Passwortschutz** (optional) — in `config.json` konfigurierbar, Cookie-basiert (90 Tage)
-- **Sub-Pfade** — `index.html` in Unterordnern von `static/` erreichbar (z.B. `/test`)
-- **CLI-Optionen** — `--port`, `--host`, `--debug` überschreiben `config.json`
+### General
+- **Password protection** (optional) — configurable in `config.json`, cookie-based (90 days)
+- **Sub-paths** — place `index.html` in subdirectories of `static/` (e.g. accessible at `/test`)
+- **CLI options** — `--port`, `--host`, `--debug` override `config.json`
 
 ## Setup
 
 ```bash
-# 1. Dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Config anpassen — API Key eintragen
+# 2. Configure — add your API key
 nano config.json
 
-# 3. Server starten
+# 3. Start the server
 python server.py --port 8080
 ```
 
-Browser öffnen: **http://localhost:8080**
+Open in browser: **http://localhost:8080**
 
-## Projektstruktur
+## Project Structure
 
 ```
-├── server.py           # Flask Backend (alle API-Endpoints)
-├── config.json         # LLM, Server, YouTube Konfiguration
-├── requirements.txt    # Python Dependencies
+├── server.py           # Flask backend (all API endpoints)
+├── config.json         # LLM, server, YouTube configuration
+├── requirements.txt    # Python dependencies
 ├── README.md
 └── static/
-    └── index.html      # Frontend (Tabs, UI, JS)
+    └── index.html      # Frontend (tabs, UI, JS — single file)
 ```
 
-## Config (`config.json`)
+## Configuration (`config.json`)
 
 ```json
 {
@@ -89,32 +89,32 @@ Browser öffnen: **http://localhost:8080**
 }
 ```
 
-| Feld | Beschreibung |
-|------|-------------|
-| `llm.api_key` | OpenRouter API Key |
-| `llm.model` | z.B. `google/gemini-2.0-flash-001`, `anthropic/claude-3.5-sonnet`, `openai/gpt-4o-mini` |
-| `server.password` | Leer = kein Passwort. Gesetzt = Login-Seite mit Cookie (90 Tage) |
-| `youtube.results_per_page` | Videos pro Seite (Standard: 10) |
-| `youtube.transcript_languages` | Bevorzugte Sprachen, z.B. `["de", "en"]` |
+| Field | Description |
+|-------|-------------|
+| `llm.api_key` | Your OpenRouter API key |
+| `llm.model` | e.g. `google/gemini-2.0-flash-001`, `anthropic/claude-3.5-sonnet`, `openai/gpt-4o-mini` |
+| `server.password` | Empty = no auth. Set a value = login page with 90-day cookie |
+| `youtube.results_per_page` | Videos per page (default: 10) |
+| `youtube.transcript_languages` | Preferred transcript languages, e.g. `["de", "en"]` |
 
 ## API Endpoints
 
-| Endpoint | Methode | Beschreibung |
-|----------|---------|-------------|
-| `/api/ask` | POST | AI-Frage beantworten mit markierten Begriffen |
-| `/api/explain` | POST | Begriff als Inline-Klammer erklären (rekursiv) |
-| `/api/search?q=...` | GET | YouTube-Suche (Innertube API) |
-| `/api/transcript/<id>` | GET | Video-Transcript abrufen |
-| `/api/summary` | POST | Transcript + LLM-Zusammenfassung |
-| `/api/web-fetch?url=...` | GET | Webseite via Proxy laden |
-| `/api/web-summary` | POST | Webseite zusammenfassen mit kategorisierten Links |
-| `/api/login` | POST | Passwort-Authentifizierung |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ask` | POST | Answer a question with highlighted terms |
+| `/api/explain` | POST | Explain a term as an inline parenthetical (recursive) |
+| `/api/search?q=...` | GET | YouTube search (Innertube API) |
+| `/api/transcript/<id>` | GET | Fetch video transcript |
+| `/api/summary` | POST | Transcript + LLM summary |
+| `/api/web-fetch?url=...` | GET | Proxy-fetch a web page |
+| `/api/web-summary` | POST | Summarize a web page with categorized links |
+| `/api/login` | POST | Password authentication |
 
 ## Tech Stack
 
 - **Backend:** Python / Flask
-- **Transcript:** `youtube-transcript-api` (kostenlos)
-- **Suche:** YouTube Innertube API (kostenlos, kein Key nötig)
-- **Web-Extraktion:** BeautifulSoup4
-- **LLM:** OpenRouter (oder jeder OpenAI-kompatible Endpoint)
-- **Frontend:** Vanilla HTML/CSS/JS, kein Build-Step
+- **Transcripts:** `youtube-transcript-api` (free, no API key)
+- **Search:** YouTube Innertube API (free, no API key)
+- **Web extraction:** BeautifulSoup4
+- **LLM:** OpenRouter (or any OpenAI-compatible endpoint)
+- **Frontend:** Vanilla HTML/CSS/JS, no build step
