@@ -1,0 +1,19 @@
+{
+  "llm": {
+    "provider": "openrouter",
+    "api_url": "https://openrouter.ai/api/v1/chat/completions",
+    "api_key": "YOUR_OPENROUTER_API_KEY",
+    "model": "google/gemini-2.0-flash-001",
+    "max_tokens": 1024,
+    "temperature": 0.3
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "debug": true
+  },
+  "youtube": {
+    "results_per_page": 10,
+    "transcript_languages": ["de", "en", "auto"]
+  }
+}
